@@ -204,8 +204,10 @@ jupyter notebook swiggy_sales_analysis.ipynb
 
 ## 📬 Contact & Links
 
-**Mounusha Ram Metti**
-- 📧 Email: mettti.mounu@gmail.com
-- 💼 LinkedIn: linkedin.com/in/mounusha-ram-metti
-- 🌐 Portfolio: https://mounushametti.vercel.app/
-- 💻 GitHub: github.com/Mounusha25
+**Brijesh Kumar**
+- 📞 Phone: 623-666-2665
+- 📧 Email: bkumar25@asu.edu
+- 💼 LinkedIn: [linkedin.com/in/brijeshkumar03](https://linkedin.com/in/brijeshkumar03)
+- 💻 GitHub: [github.com/Brijesh03032001](https://github.com/Brijesh03032001)
+- 📍 Location: Tempe, AZ
+- 🟢 Open to CPT / OPT
