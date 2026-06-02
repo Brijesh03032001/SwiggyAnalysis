@@ -14,31 +14,40 @@ import sqlite3
 import os
 import pandas as pd
 
+from analytics_models import calculate_restaurant_frequency_tiers, prepare_order_data
+
 DB_PATH = "swiggy.db"
 EXCEL_PATH = "swiggy_data.xlsx"
 
 
-def setup_database(excel_path: str = EXCEL_PATH, db_path: str = DB_PATH) -> str:
+def setup_database(
+    excel_path: str = EXCEL_PATH,
+    db_path: str = DB_PATH,
+    source_df: pd.DataFrame | None = None,
+) -> str:
     """
-    Read swiggy_data.xlsx and load it into a SQLite database as the 'orders' table.
-    Adds derived columns (Year_Month, Quarter, DayName, DayOfWeek) before inserting.
+    Read Swiggy orders from Excel or a provided DataFrame and load them into SQLite.
+    Adds shared derived columns before inserting.
     Returns the path to the created database file.
     """
-    df = pd.read_excel(excel_path)
+    raw_df = source_df if source_df is not None else pd.read_excel(excel_path)
+    df = prepare_order_data(raw_df)
 
-    df["Order Date"] = pd.to_datetime(df["Order Date"])
-    df["Year_Month"] = df["Order Date"].dt.to_period("M").astype(str)
-    df["Quarter"] = df["Order Date"].dt.to_period("Q").astype(str)
+    # SQL aliases keep existing queries readable while sharing prep logic.
+    df["Year_Month"] = df["Year-Month"]
     df["Year"] = df["Order Date"].dt.year
     df["Month"] = df["Order Date"].dt.month
-    df["DayName"] = df["Order Date"].dt.day_name()
-    df["DayOfWeek"] = df["Order Date"].dt.dayofweek  # 0=Monday
+    df["Value_Segment"] = df["Value_Segment"].astype(str)
+    df["Food_Category"] = df["Food Category"]
     df["Order Date"] = df["Order Date"].astype(str)  # SQLite-friendly
+    restaurant_frequency = calculate_restaurant_frequency_tiers(raw_df)
 
     conn = sqlite3.connect(db_path)
     conn.execute("DROP TABLE IF EXISTS orders")
+    conn.execute("DROP TABLE IF EXISTS restaurant_frequency")
     conn.commit()
     df.to_sql("orders", conn, if_exists="replace", index=False)
+    restaurant_frequency.to_sql("restaurant_frequency", conn, if_exists="replace", index=False)
     conn.commit()
     conn.close()
 
@@ -205,28 +214,13 @@ ORDER BY MIN("Price (INR)");""",
     "Restaurant Frequency Tiers": {
         "sql": """\
 SELECT
-    Tier                                 AS "Frequency Tier",
+    "Frequency Tier",
     COUNT(*)                             AS "Restaurants",
     SUM(Orders)                          AS "Total Orders",
     ROUND(SUM(Revenue), 2)               AS "Total Revenue (INR)",
     ROUND(AVG(Avg_Rating), 3)            AS "Avg Rating"
-FROM (
-    SELECT
-        "Restaurant Name",
-        COUNT(*)                         AS Orders,
-        SUM("Price (INR)")               AS Revenue,
-        AVG(Rating)                      AS Avg_Rating,
-        CASE
-            WHEN PERCENT_RANK() OVER (ORDER BY COUNT(*)) >= 0.80
-                                         THEN 'High Volume (Top 20%)'
-            WHEN PERCENT_RANK() OVER (ORDER BY COUNT(*)) >= 0.40
-                                         THEN 'Medium Volume (40-80%)'
-            ELSE                              'Low Volume (Bottom 40%)'
-        END                              AS Tier
-    FROM orders
-    GROUP BY "Restaurant Name"
-)
-GROUP BY Tier
+FROM restaurant_frequency
+GROUP BY "Frequency Tier"
 ORDER BY MIN(Orders) DESC;""",
         "description": (
             "Classifies restaurants by order volume into High / Medium / Low tiers "
@@ -261,6 +255,119 @@ ORDER BY Revenue DESC;""",
         "description": (
             "Identifies the minimum set of cities that together generate 80% of "
             "total revenue (Pareto / 80-20 rule)."
+        ),
+    },
+
+    "Restaurant RFM Segmentation": {
+        "sql": """\
+WITH base AS (
+    SELECT
+        "Restaurant Name"                 AS Restaurant,
+        MAX("Order Date")                 AS Last_Order,
+        CAST(julianday((SELECT MAX("Order Date") FROM orders)) - julianday(MAX("Order Date")) + 1 AS INTEGER)
+                                           AS Recency_Days,
+        COUNT(*)                          AS Frequency,
+        SUM("Price (INR)")                AS Monetary,
+        AVG("Price (INR)")                AS Avg_Order_Value,
+        AVG(Rating)                       AS Avg_Rating
+    FROM orders
+    GROUP BY "Restaurant Name"
+),
+scores AS (
+    SELECT
+        *,
+        6 - NTILE(5) OVER (ORDER BY Recency_Days ASC) AS R_Score,
+        NTILE(5) OVER (ORDER BY Frequency ASC)        AS F_Score,
+        NTILE(5) OVER (ORDER BY Monetary ASC)         AS M_Score
+    FROM base
+),
+segments AS (
+    SELECT
+        *,
+        R_Score + F_Score + M_Score AS RFM_Score,
+        CASE
+            WHEN R_Score >= 4 AND F_Score >= 4 AND M_Score >= 4 THEN 'Champions'
+            WHEN R_Score >= 3 AND F_Score >= 4                 THEN 'Loyal Partners'
+            WHEN M_Score >= 4 AND F_Score < 4                  THEN 'Big Spenders'
+            WHEN R_Score <= 2 AND F_Score >= 3                 THEN 'At Risk'
+            WHEN R_Score <= 2                                  THEN 'Hibernating'
+            ELSE                                                    'Emerging'
+        END AS RFM_Segment
+    FROM scores
+)
+SELECT
+    Restaurant,
+    RFM_Segment,
+    R_Score || F_Score || M_Score          AS RFM_Code,
+    RFM_Score,
+    Recency_Days,
+    Frequency,
+    ROUND(Monetary, 2)                     AS "Revenue (INR)",
+    ROUND(Avg_Order_Value, 2)              AS "Avg Order Value (INR)",
+    ROUND(Avg_Rating, 3)                   AS "Avg Rating"
+FROM segments
+ORDER BY RFM_Score DESC, Monetary DESC
+LIMIT 50;""",
+        "description": (
+            "Implements restaurant-partner RFM scoring in SQL using recency, "
+            "frequency, and monetary value as account-retention signals."
+        ),
+    },
+
+    "Restaurant Cohort Retention": {
+        "sql": """\
+WITH restaurant_months AS (
+    SELECT DISTINCT
+        "Restaurant Name"                  AS Restaurant,
+        Year_Month                         AS Active_Month
+    FROM orders
+),
+cohorts AS (
+    SELECT
+        Restaurant,
+        MIN(Active_Month)                  AS Cohort_Month
+    FROM restaurant_months
+    GROUP BY Restaurant
+),
+activity AS (
+    SELECT
+        c.Cohort_Month,
+        rm.Active_Month,
+        ((CAST(substr(rm.Active_Month, 1, 4) AS INTEGER) - CAST(substr(c.Cohort_Month, 1, 4) AS INTEGER)) * 12
+         + (CAST(substr(rm.Active_Month, 6, 2) AS INTEGER) - CAST(substr(c.Cohort_Month, 6, 2) AS INTEGER)))
+                                           AS Cohort_Index,
+        rm.Restaurant
+    FROM restaurant_months rm
+    JOIN cohorts c ON rm.Restaurant = c.Restaurant
+),
+retention AS (
+    SELECT
+        Cohort_Month,
+        Cohort_Index,
+        COUNT(DISTINCT Restaurant)          AS Active_Restaurants
+    FROM activity
+    GROUP BY Cohort_Month, Cohort_Index
+),
+cohort_sizes AS (
+    SELECT
+        Cohort_Month,
+        Active_Restaurants                 AS Cohort_Size
+    FROM retention
+    WHERE Cohort_Index = 0
+)
+SELECT
+    r.Cohort_Month,
+    r.Cohort_Index                         AS "Months Since First Order",
+    cs.Cohort_Size,
+    r.Active_Restaurants,
+    ROUND(r.Active_Restaurants * 100.0 / cs.Cohort_Size, 2)
+                                           AS "Retention %"
+FROM retention r
+JOIN cohort_sizes cs ON r.Cohort_Month = cs.Cohort_Month
+ORDER BY r.Cohort_Month, r.Cohort_Index;""",
+        "description": (
+            "Builds monthly restaurant-partner cohorts and measures the share "
+            "that remains active in each later month."
         ),
     },
 }
