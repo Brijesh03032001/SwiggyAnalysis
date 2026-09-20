@@ -8,20 +8,22 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![SQLite](https://img.shields.io/badge/SQLite-3+-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
 
-> **Not just charts. A decision-support system for Swiggy's growth team.**
+> **Not just charts. An independent decision-support analysis of Swiggy order data, built the way a growth team would use one.**
 
 ---
 
 ## About This Project
 
-This project is a full-stack data analytics solution built on **197,430 real Swiggy food delivery orders** across India. It goes beyond surface-level charts to answer the kind of strategic questions a growth analyst or product manager at Swiggy would actually care about.
+This is an independent, self-directed data analytics project — not work performed for, commissioned by, or affiliated with Swiggy. It's a full-stack analysis built on **197,430 Swiggy food delivery order records** across India, structured the way a growth team's internal analytics stack might be, to answer the kind of strategic questions a growth analyst or product manager at a food-delivery company would actually care about.
 
-The project combines **exploratory data analysis, statistical testing, machine learning scoring models, SQL pipelines, and revenue forecasting** into a single cohesive system — delivered through an interactive Streamlit dashboard, a 66-cell Jupyter notebook, and a downloadable 20-sheet Excel KPI report.
+The project combines **exploratory data analysis, statistical testing, composite scoring models, SQL pipelines, and revenue forecasting** into a single cohesive system — delivered through an interactive Streamlit dashboard, a 69-cell Jupyter notebook, and a downloadable 20-sheet Excel KPI report.
 
 Three original analytical frameworks sit at the core:
 - **City Expansion Opportunity Index** — a composite model that ranks every city by growth potential
 - **Menu Intelligence Matrix** — a BCG-style quadrant chart classifying food categories by revenue and satisfaction
 - **Restaurant Health Score** — a viability index that flags at-risk restaurants before they churn
+
+Pandas, Plotly, and Streamlit provide the data-wrangling, interactive-charting, and web-app layers. The scoring logic itself — the three frameworks above, RFM/cohort segmentation, hypothesis testing, and ARIMA forecast validation, all implemented in `analytics_models.py` — was built specifically for this project, not supplied by any library.
 
 Whether you're exploring the data, running SQL queries, or reviewing the forecasting model, everything is connected through a single source of truth: `swiggy_data.xlsx`.
 
@@ -33,7 +35,7 @@ Whether you're exploring the data, running SQL queries, or reviewing the forecas
 |---|----------|--------------------|
 | 1 | Which cities should Swiggy expand into next? | City Expansion Opportunity Index |
 | 2 | Which restaurants are at risk of churning off the platform? | Restaurant Health Score |
-| 3 | Which food categories are Stars vs Dogs in our portfolio? | Menu Intelligence Matrix |
+| 3 | Which food categories are Stars vs Dogs on the platform? | Menu Intelligence Matrix |
 | 4 | When is peak demand, and how should ops scale? | Synthetic demand modelling + time-of-day analysis |
 | 5 | What does revenue look like in the next 3 months? | ARIMA forecasting with train/test validation |
 
@@ -70,7 +72,7 @@ Assigns each restaurant a Health Score (0–100):
 
 | Attribute | Value |
 |-----------|-------|
-| Source | Swiggy platform orders |
+| Source | Swiggy order-level data, used here for independent analysis (not supplied by, or performed under any engagement with, Swiggy) |
 | Rows | **197,430** |
 | Columns | 10 |
 | Key Fields | `State`, `City`, `Order Date`, `Restaurant Name`, `Category`, `Dish Name`, `Price (INR)`, `Rating`, `Rating Count` |
@@ -277,8 +279,9 @@ The dataset does not include a `Customer ID` or real order timestamp. To keep th
 
 **Brijesh Kumar**
 - 📞 Phone: 623-666-2665
-- 📧 Email: bkumar25@asu.edu
+- 📧 Email: kumarbrijesh.dev@outlook.com
 - 💼 LinkedIn: [linkedin.com/in/brijeshkumar03](https://linkedin.com/in/brijeshkumar03)
 - 💻 GitHub: [github.com/Brijesh03032001](https://github.com/Brijesh03032001)
+- 🌐 Portfolio: [brijeshbuilds.com](https://brijeshbuilds.com)
 - 📍 Location: Tempe, AZ
 - 🟢 Open to CPT / OPT
