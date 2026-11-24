@@ -4,284 +4,116 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)](https://python.org)
 [![Pandas](https://img.shields.io/badge/Pandas-2.0+-150458?logo=pandas&logoColor=white)](https://pandas.pydata.org)
+[![SciPy](https://img.shields.io/badge/SciPy-stats-8CAAE6?logo=scipy&logoColor=white)](https://scipy.org)
 [![Plotly](https://img.shields.io/badge/Plotly-5.14+-3F4F75?logo=plotly&logoColor=white)](https://plotly.com)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![SQLite](https://img.shields.io/badge/SQLite-3+-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
 
-> **Not just charts. An independent decision-support analysis of Swiggy order data, built the way a growth team would use one.**
+> **Not just charts.** An independent decision-support analysis of **197,430 food-delivery orders**, built the way a growth team would actually use one.
+
+> This is an independent, self-directed analytics project — not work performed for, commissioned by, or affiliated with Swiggy.
 
 ---
 
-## About This Project
+## Highlights
 
-This is an independent, self-directed data analytics project — not work performed for, commissioned by, or affiliated with Swiggy. It's a full-stack analysis built on **197,430 Swiggy food delivery order records** across India, structured the way a growth team's internal analytics stack might be, to answer the kind of strategic questions a growth analyst or product manager at a food-delivery company would actually care about.
-
-The project combines **exploratory data analysis, statistical testing, composite scoring models, SQL pipelines, and revenue forecasting** into a single cohesive system — delivered through an interactive Streamlit dashboard, a 69-cell Jupyter notebook, and a downloadable 20-sheet Excel KPI report.
-
-Three original analytical frameworks sit at the core:
-- **City Expansion Opportunity Index** — a composite model that ranks every city by growth potential
-- **Menu Intelligence Matrix** — a BCG-style quadrant chart classifying food categories by revenue and satisfaction
-- **Restaurant Health Score** — a viability index that flags at-risk restaurants before they churn
-
-Pandas, Plotly, and Streamlit provide the data-wrangling, interactive-charting, and web-app layers. The scoring logic itself — the three frameworks above, RFM/cohort segmentation, hypothesis testing, and ARIMA forecast validation, all implemented in `analytics_models.py` — was built specifically for this project, not supplied by any library.
-
-Whether you're exploring the data, running SQL queries, or reviewing the forecasting model, everything is connected through a single source of truth: `swiggy_data.xlsx`.
+- Transformed **197,430 orders** across **10 fields** into a market-intelligence system answering **5 strategic questions**: expansion, churn risk, menu strategy, peak demand and the 3-month revenue outlook.
+- Designed **3 proprietary analytical frameworks** — City Expansion Opportunity Index, Menu Intelligence Matrix and Restaurant Health Score — to convert raw orders into growth, category and partner-risk decisions.
+- Built a **0–100 City Expansion Opportunity Index** from **4 weighted signals**: revenue growth **30%**, customer rating **25%**, order density **25%**, category diversity **20%**.
+- Scored every restaurant **0–100** on a **Restaurant Health Score** weighting revenue **40%**, satisfaction **30%**, order volume **20%** and recency **10%**, sorting partners into Champion, Healthy, At Risk and Critical tiers so account teams know who to call first.
+- Tested ratings and prices with **Mann-Whitney U** and **ANOVA**, then used **effect sizes** to separate statistical significance from practical significance: rating gaps by dish type, price tier and city were significant but negligible, while non-vegetarian dishes cost moderately more (median **INR 295 vs 200**).
+- Compared **Prophet, auto-ARIMA, a 3-month moving average and naive** revenue forecasts on a **2-month holdout**, then selected the moving average for the 3-month outlook because it beat the more complex models at **1.29% MAPE** versus **1.88–3.07%**.
+- Built a SQLite pipeline with **12 SQL queries** for monthly revenue, state and category revenue, top dishes, Pareto 80% cities, RFM segmentation and cohort retention.
+- Generated **6 Tableau-ready CSV extracts** from the same tested analytics functions, so executive BI never re-implements the Python logic.
+- Delivered one analysis through **3 consumption surfaces**: a **9-tab Streamlit dashboard**, a **66-cell Jupyter notebook** and a **20-sheet Excel KPI report**.
+- Kept the analysis honest about dataset limits — no Customer ID and no real timestamps — by using restaurant-partner RFM and cohort retention and clearly labeling synthetic peak windows of **11–13** and **19–22**.
 
 ---
 
-## 5 Strategic Questions This Project Answers — With Data
+## Pipeline architecture
 
-| # | Question | Framework / Method |
-|---|----------|--------------------|
-| 1 | Which cities should Swiggy expand into next? | City Expansion Opportunity Index |
-| 2 | Which restaurants are at risk of churning off the platform? | Restaurant Health Score |
-| 3 | Which food categories are Stars vs Dogs on the platform? | Menu Intelligence Matrix |
-| 4 | When is peak demand, and how should ops scale? | Synthetic demand modelling + time-of-day analysis |
-| 5 | What does revenue look like in the next 3 months? | ARIMA forecasting with train/test validation |
+```mermaid
+flowchart LR
+    RAW["197,430 raw orders<br/>10 fields"] --> CLEAN["Pandas cleaning<br/>+ enrichment"]
+    CLEAN --> DB[("SQLite warehouse")]
 
----
+    DB --> Q["12 SQL analytical queries"]
+    Q --> F1["City Expansion<br/>Opportunity Index"]
+    Q --> F2["Menu Intelligence<br/>Matrix"]
+    Q --> F3["Restaurant<br/>Health Score"]
+    Q --> RFM["RFM + cohort retention"]
 
-## What Makes This Different?
+    CLEAN --> STATS["SciPy: Mann-Whitney U · ANOVA<br/>+ effect sizes"]
+    DB --> FC["Forecasting:<br/>Prophet · auto-ARIMA · MA · naive"]
 
-Most Swiggy analysis projects produce the same bar charts. This project builds **three proprietary analytical frameworks** modelled on consulting methodology:
+    F1 --> OUT
+    F2 --> OUT
+    F3 --> OUT
+    RFM --> OUT
+    STATS --> OUT
+    FC --> OUT
 
-### 🏙️ A1 — City Expansion Opportunity Index
-A 4-signal composite model that scores every city 0–100:
-- **Revenue Growth Rate (30%)** — Is the market accelerating?
-- **Weighted Customer Rating (25%)** — Does the market have satisfied customers?
-- **Order Density / restaurant (25%)** — How efficient is the market?
-- **Category Diversity (20%)** — How sticky is the platform?
-
-Produces a strategic 4-quadrant scatter: **Stars / Untapped / Emerging / Low Priority**.
-
-### 🍽️ A3 — Menu Intelligence Matrix (BCG-Style)
-Classifies food categories into four strategic quadrants:
-- ⭐ **Stars** — High revenue share + high rating → *Promote aggressively*
-- 💎 **Hidden Gems** — Low revenue + high rating → *Invest in discovery*
-- 💰 **Cash Cows** — High revenue + lower rating → *Maintain and improve*
-- ⚠️ **Review Needed** — Low revenue + low rating → *Revamp or discontinue*
-
-### 🏥 A2 — Restaurant Health Score (Composite Viability Index)
-Assigns each restaurant a Health Score (0–100):
-- Revenue contribution (40%) + Customer satisfaction (30%) + Order volume (20%) + Recency (10%)
-- Tiered output: **Champion / Healthy / At Risk / Critical**
-
----
-
-## Dataset
-
-| Attribute | Value |
-|-----------|-------|
-| Source | Swiggy order-level data, used here for independent analysis (not supplied by, or performed under any engagement with, Swiggy) |
-| Rows | **197,430** |
-| Columns | 10 |
-| Key Fields | `State`, `City`, `Order Date`, `Restaurant Name`, `Category`, `Dish Name`, `Price (INR)`, `Rating`, `Rating Count` |
-
----
-
-## Project Structure
-
+    OUT["Analytics functions<br/>(single tested source)"] --> S1["Streamlit · 9 tabs"]
+    OUT --> S2["Jupyter · 66 cells"]
+    OUT --> S3["Excel · 20 sheets"]
+    OUT --> S4["6 Tableau-ready CSV extracts"]
 ```
-SwiggyAnalysis/
-│
-├── app.py                      # Streamlit dashboard entrypoint
-├── dashboard_ui.py             # Page layout, sidebar filters, KPIs, footer
-├── dashboard_tabs.py           # 9 dashboard tab renderers
-├── analytics_models.py         # RFM, cohorts, statistical tests, forecast validation
-├── export_tableau_extracts.py  # Tableau-ready CSV export layer
-├── swiggy_sales_analysis.ipynb # Main analysis notebook
-├── sql_pipeline.py             # SQLite DB + 12 analytics queries
-├── generate_excel_report.py    # 20-sheet formatted Excel KPI report
-├── next-dashboard/             # Next.js analytics dashboard
-├── tests/                      # Pytest suite
-├── tableau_extracts/           # Tableau workbook + extract docs
-├── swiggy_data.xlsx            # Source dataset
-├── requirements.txt            # Runtime dependencies
-└── README.md
+
+## How a partner gets scored
+
+```mermaid
+flowchart TD
+    R["Restaurant"] --> A["Revenue · 40%"]
+    R --> B["Customer satisfaction · 30%"]
+    R --> C["Order volume · 20%"]
+    R --> D["Recency · 10%"]
+    A --> S["Health Score 0-100"]
+    B --> S
+    C --> S
+    D --> S
+    S --> T1["Champion"]
+    S --> T2["Healthy"]
+    S --> T3["At Risk"]
+    S --> T4["Critical"]
 ```
 
 ---
 
-## Dashboard — 9 Tabs
+## Statistical findings
 
-| Tab | Content |
-|-----|---------|
-| 📈 Overview | Revenue KPIs, quarterly performance, day-of-week patterns |
-| 🗺️ Geographic | State/city heatmaps, revenue vs rating scatter |
-| 🎯 Segments | Order-value segments, food preference heatmap, frequency tiers |
-| 📉 Trends | Monthly trend + 3-month moving average, MoM growth rate |
-| 💡 Insights | Pareto 80-20 analysis, price-rating correlation, **Menu Intelligence Matrix** |
-| 🧭 Modeled Demand | Clearly separated synthetic time-of-day / peak-hour scenario |
-| 🧪 Advanced Analytics | RFM, cohort retention, Mann-Whitney U, ANOVA, ARIMA validation |
-| 🗄️ SQL Pipeline | 12 SQL queries running against a live SQLite database |
-| 📍 Expansion Strategy | **City Expansion Opportunity Index** + **Restaurant Health Score** |
+| Test | Result | Effect size | Read |
+|---|---|---|---|
+| Price: Veg vs Non-Veg | p < 0.001 | r = **0.36** | Medium — real and actionable |
+| Rating: Veg vs Non-Veg | p < 0.001 | r = **-0.05** | Negligible |
+| Rating by value tier | p < 0.001 | η² = **0.0011** | Negligible |
+| Rating by city | p < 0.001 | η² = **0.0097** | Negligible |
 
----
+**Forecast validation (2-month holdout):** 3-month moving average **1.29% MAPE** · auto-ARIMA 1.88% · Prophet 2.50% · naive 3.07%.
 
-## Notebook — End-to-End Analysis
+## Tech stack
 
-```
-§ 0   Executive Summary
-§ 1   Data Loading & Quality Audit
-§ 2   Weighted Rating Analysis
-§ 3   Revenue Overview
-§ 4   Monthly Trend & MoM Growth
-§ 5   Category & Geographic Analysis
-      ↳ A3: Menu Intelligence Matrix (BCG Framework)
-      ↳ A1: City Expansion Opportunity Index
-§ 6   Quarterly Performance
-§ 7   Customer Segmentation
-      ↳ A2: Restaurant Health Score
-      ↳ 7.1 RFM Analysis
-      ↳ 7.2 Peak Hours (synthetic demand)
-      ↳ 7.3 Cohort Retention
-      ↳ 7.4 Hypothesis Testing (Mann-Whitney U, ANOVA)
-§ 8   Correlation & Price Analysis
-§ 9   Geographic Visualisations
-§10   Predictive Forecasting (ARIMA with MAPE vs naive baseline)
-§11   SQL Integration Demo
-§12   Excel Report Generation
-```
+**Analysis** Python · Pandas · NumPy · SciPy · statsmodels · scikit-learn
+**Storage & SQL** SQLite · 12 analytical queries
+**Forecasting** Prophet · auto-ARIMA · moving average · naive baselines
+**Delivery** Streamlit · Plotly · Matplotlib · Seaborn · openpyxl (Excel) · Tableau extracts
+**Quality** pytest · GitHub Actions
 
----
-
-## Tableau Extract Layer
-
-Streamlit is the engineering layer for live Python analytics. Tableau is intended as a focused executive BI layer, using flat CSV extracts generated from the same tested Python functions:
+## Quick start
 
 ```bash
-python export_tableau_extracts.py
-```
-
-This writes `tableau_extracts/` with:
-
-- `orders_enriched.csv` — order rows plus `Value_Segment`, `Food Category`, `Year-Month`, `Quarter`, and `DayName`
-- `city_expansion_index.csv` — city opportunity score, inputs, and tier
-- `restaurant_health_score.csv` — restaurant health score, inputs, and tier
-- `rfm_summary.csv` / `rfm_detail.csv` — restaurant-partner RFM outputs
-- `cohort_retention.csv` — monthly restaurant-partner retention matrix
-
-Use these files in Tableau instead of rebuilding RFM, cohort, ARIMA, statistical tests, or composite indices as Tableau calculated fields.
-
----
-
-## SQL Analytics Pipeline
-
-12 queries run against a **SQLite database built from `swiggy_data.xlsx`** — replicating a real data-engineering pipeline:
-
-1. Monthly Revenue Trend
-2. Revenue by State
-3. Revenue by Category
-4. Quarterly Performance
-5. Top Dishes by Revenue
-6. Top Restaurants
-7. Day-of-Week Patterns
-8. Customer Basket Segmentation
-9. Restaurant Frequency Tiers
-10. Pareto 80% Cities
-11. Restaurant RFM Segmentation
-12. Restaurant Cohort Retention
-
----
-
-## Excel KPI Report — 20 Sheets
-
-Generated on-demand from the dashboard (Download button in sidebar):
-
-`Summary KPIs` · `Monthly Trend` · `Quarterly Performance` · `Top States` · `Top Cities` · `Top Dishes` · `Category Mix` · `Customer Segments` · `Pareto Analysis` · `Day of Week` · `Time of Day` · `Price-Rating` · `Restaurant Frequency` · `RFM Summary` · `RFM Detail` · `Cohort Retention` · `Statistical Tests` · `Forecast Validation` · `Forecast Metrics` · `Revenue Forecast`
-
----
-
-## Tech Stack
-
-| Layer | Tools |
-|-------|-------|
-| Data Wrangling | Python, Pandas, NumPy |
-| Visualisation | Plotly (interactive), Matplotlib, Seaborn |
-| Statistics | SciPy (Mann-Whitney U, ANOVA), Statsmodels (ARIMA) |
-| ML / Scoring | scikit-learn (MinMaxScaler for composite indices) |
-| Database | SQLite (via Python stdlib) |
-| Dashboard | Streamlit |
-| Reporting | openpyxl (20-sheet Excel) |
-
----
-
-## Quick Start
-
-```bash
-# 1. Clone and install
 git clone https://github.com/Brijesh03032001/SwiggyAnalysis.git
 cd SwiggyAnalysis
 pip install -r requirements.txt
-
-# 2. Launch the dashboard
-streamlit run app.py
-
-# 3. Open the notebook
-jupyter notebook swiggy_sales_analysis.ipynb
 ```
-
-> ⚠️ Place `swiggy_data.xlsx` in the project root before running.
-
----
-
-## Testing & CI
-
-Automated tests use small synthetic fixtures, so they run quickly without the full `swiggy_data.xlsx` file:
 
 ```bash
-pip install -r requirements-dev.txt
-pytest
+streamlit run app.py        # 9-tab dashboard
 ```
 
-The suite covers food classification edge cases, shared data preparation, RFM segmentation, cohort retention, and all SQL queries. GitHub Actions runs the same tests on every push and pull request via `.github/workflows/tests.yml`.
+```bash
+python -m scripts.build_excel_report    # 20-sheet KPI workbook
+```
 
 ---
 
-## Key Findings
-
-- **Revenue concentration measured**: Pareto analysis identifies the exact city set needed to reach 80% of revenue
-- **Untapped markets identified**: Several tier-2 cities score high on the Expansion Index despite low current revenue
-- **Critical restaurants flagged**: Restaurant Health Score surfaces partners below the intervention threshold
-- **Star categories**: A small number of food categories drive disproportionate revenue with high satisfaction — clear marketing priorities
-- **Modeled demand peaks**: Lunch (11–13h) and Dinner (19–22h) dominate in the separated synthetic time-of-day scenario; weekends slightly outperform weekdays
-
----
-
-## Advanced Analytics Implementation Notes
-
-The dataset does not include a `Customer ID` or real order timestamp. To keep the analysis honest and reproducible:
-
-- **RFM analysis** is implemented as restaurant-partner RFM using `Restaurant Name` as the entity.
-- **Cohort retention** is implemented as restaurant-partner monthly cohort retention.
-- **Peak-hour analysis** uses a clearly labelled synthetic demand distribution because only `Order Date` is available.
-- **Forecasting** validates ARIMA against naive and 3-month moving-average baselines using holdout months, with MAPE/RMSE shown in the dashboard and Excel report.
-- **Statistical testing** uses SciPy Mann-Whitney U tests for Veg vs Non-Veg distributions and ANOVA across value tiers/cities.
-
----
-
-## Skills Demonstrated
-
-- ✅ **Analytical Frameworks** — BCG-style matrix, composite scoring models (consulting methodology)
-- ✅ **Data Analysis** — Pandas, NumPy, exploratory analysis, outlier detection
-- ✅ **Statistical Methods** — Mann-Whitney U, ANOVA, correlation analysis
-- ✅ **Visualisation** — Interactive Plotly dashboards, storytelling with data
-- ✅ **Forecasting** — ARIMA with train/test split, MAPE vs naive baseline comparison
-- ✅ **SQL** — 12 production-style queries, SQLite pipeline, window functions
-- ✅ **Business Intelligence** — KPI design, customer segmentation, Pareto analysis
-- ✅ **Software Engineering** — Modular Python, Streamlit app, downloadable Excel reports
-
-
-
----
-
-## 📬 Contact & Links
-
-**Brijesh Kumar**
-- 📞 Phone: 623-666-2665
-- 📧 Email: kumarbrijesh.dev@outlook.com
-- 💼 LinkedIn: [linkedin.com/in/brijeshkumar03](https://linkedin.com/in/brijeshkumar03)
-- 💻 GitHub: [github.com/Brijesh03032001](https://github.com/Brijesh03032001)
-- 🌐 Portfolio: [brijeshbuilds.com](https://brijeshbuilds.com)
-- 📍 Location: Tempe, AZ
-- 🟢 Open to CPT / OPT
+**Built by [Brijesh Kumar](https://github.com/Brijesh03032001)** · [Portfolio](https://brijeshbuilds.com) · [LinkedIn](https://linkedin.com/in/brijeshkumar03)
